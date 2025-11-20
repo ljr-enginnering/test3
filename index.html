@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production & Mold Dashboard</title>
+    <!-- Remix Icon -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="ri-dashboard-3-line"></i>
+                <span>PMS System</span>
+            </div>
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="dashboard">
+                    <i class="ri-bar-chart-grouped-line"></i>
+                    <span>대시보드</span>
+                </button>
+                <button class="nav-item" data-tab="inventory">
+                    <i class="ri-archive-line"></i>
+                    <span>금형 관리</span>
+                </button>
+            </nav>
+            <div class="user-profile">
+                <div class="avatar">AD</div>
+                <div class="info">
+                    <span class="name">Admin User</span>
+                    <span class="role">Manager</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header">
+                <h1 id="page-title">대시보드</h1>
+                <div class="header-actions">
+                    <button class="icon-btn"><i class="ri-notification-3-line"></i></button>
+                    <button class="icon-btn"><i class="ri-settings-3-line"></i></button>
+                </div>
+            </header>
+
+            <!-- Dashboard View -->
+            <section id="dashboard-view" class="view-section active">
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="icon-wrapper blue"><i class="ri-hammer-line"></i></div>
+                        <div class="kpi-info">
+                            <span class="label">오늘 생산량</span>
+                            <h3 class="value" id="kpi-production">0</h3>
+                            <span class="trend positive"><i class="ri-arrow-up-line"></i> 12% vs 어제</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="icon-wrapper green"><i class="ri-checkbox-circle-line"></i></div>
+                        <div class="kpi-info">
+                            <span class="label">가동률</span>
+                            <h3 class="value" id="kpi-utilization">0%</h3>
+                            <span class="trend positive"><i class="ri-arrow-up-line"></i> 5% vs 목표</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="icon-wrapper purple"><i class="ri-archive-drawer-line"></i></div>
+                        <div class="kpi-info">
+                            <span class="label">총 금형 수</span>
+                            <h3 class="value" id="kpi-molds">0</h3>
+                            <span class="trend neutral">변동 없음</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="icon-wrapper orange"><i class="ri-alert-line"></i></div>
+                        <div class="kpi-info">
+                            <span class="label">수리 필요</span>
+                            <h3 class="value" id="kpi-repair">0</h3>
+                            <span class="trend negative"><i class="ri-arrow-up-line"></i> 2건 증가</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-container">
+                    <div class="chart-card main-chart">
+                        <div class="card-header">
+                            <h3>주간 생산량 추이</h3>
+                            <select class="chart-filter">
+                                <option>이번 주</option>
+                                <option>지난 주</option>
+                            </select>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="productionChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card side-chart">
+                        <div class="card-header">
+                            <h3>금형 상태 비율</h3>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="moldStatusChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Inventory View -->
+            <section id="inventory-view" class="view-section">
+                <div class="inventory-controls">
+                    <div class="search-bar">
+                        <i class="ri-search-line"></i>
+                        <input type="text" id="mold-search" placeholder="금형 이름 또는 ID 검색...">
+                    </div>
+                    <div class="filters">
+                        <select id="status-filter">
+                            <option value="all">모든 상태</option>
+                            <option value="normal">정상</option>
+                            <option value="repair">수리 필요</option>
+                            <option value="disposal">폐기 예정</option>
+                        </select>
+                        <button class="btn-primary"><i class="ri-add-line"></i> 금형 추가</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>금형 이름</th>
+                                <th>규격</th>
+                                <th>현재 위치</th>
+                                <th>누적 타수</th>
+                                <th>상태</th>
+                                <th>관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mold-table-body">
+                            <!-- Rows will be populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
