@@ -1,28 +1,41 @@
-// Application Logic
+// ==========================================
+// PMS System - Main Application Logic
+// ==========================================
 
+// 1. Configuration
+const API_URL = 'https://script.google.com/macros/s/AKfycbwPRwOzCa0DLfHBrpyVTJqy4dnxZot8ZeJt1bGJATAT-jBk_NrBf-nxGlrfn_oEoIUT/exec';
+
+// 2. Global State
+const state = {
+    moldMaster: [],
+    customers: [],
+    products: [],
+    machines: [],
+    partners: [],
+    isLoading: false
+};
+
+// 3. Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    initDashboard();
-    initInventory();
-    setupNavigation();
+    initNavigation();
+    initModal();
+    loadData();
 });
 
-// --- Navigation Logic ---
-function setupNavigation() {
+// 4. Navigation Logic
+function initNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
     const sections = document.querySelectorAll('.view-section');
     const pageTitle = document.getElementById('page-title');
 
     navItems.forEach(item => {
         item.addEventListener('click', () => {
-            // Remove active class from all items
+            // Remove active class from all
             navItems.forEach(nav => nav.classList.remove('active'));
-            // Add active class to clicked item
+            sections.forEach(sec => sec.classList.remove('active'));
+
+            // Add active class to clicked
             item.classList.add('active');
-
-            // Hide all sections
-            sections.forEach(section => section.classList.remove('active'));
-
-            // Show target section
             const tabId = item.dataset.tab;
             document.getElementById(`${tabId}-view`).classList.add('active');
 
@@ -32,186 +45,303 @@ function setupNavigation() {
     });
 }
 
-// --- Dashboard Logic ---
-function initDashboard() {
-    updateKPIs();
-    renderProductionChart();
-    renderStatusChart();
+// 5. Dashboard Logic
+function renderDashboard() {
+    // Calculate KPIs
+    const totalMolds = state.moldMaster.length;
+    const totalCustomers = state.customers.length;
+    const totalMachines = state.machines.length;
+
+    // Calculate Recent Registrations (Current Month)
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const recentMolds = state.moldMaster.filter(item => {
+        if (!item['등록일']) return false;
+        const date = new Date(item['등록일']);
+        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    }).length;
+
+    // Update DOM
+    document.getElementById('kpi-total-molds').textContent = totalMolds;
+    document.getElementById('kpi-recent-reg').textContent = recentMolds;
+    document.getElementById('kpi-customers').textContent = totalCustomers;
+    document.getElementById('kpi-machines').textContent = totalMachines;
 }
 
-function updateKPIs() {
-    document.getElementById('kpi-production').textContent = productionData.kpi.today.toLocaleString();
-    document.getElementById('kpi-utilization').textContent = `${productionData.kpi.utilization}%`;
-    document.getElementById('kpi-molds').textContent = productionData.kpi.totalMolds;
-    document.getElementById('kpi-repair').textContent = productionData.kpi.repairNeeded;
+// 6. Inventory Logic
+function renderInventoryFilters() {
+    const filterSelect = document.getElementById('customer-filter');
+
+    // Clear existing options except 'all'
+    filterSelect.innerHTML = '<option value="all">모든 고객사</option>';
+
+    state.customers.forEach(customer => {
+        const option = document.createElement('option');
+        option.value = customer['거래처기호']; // Use code as value
+        option.textContent = customer['거래처명'];
+        filterSelect.appendChild(option);
+    });
+
+    // Add Event Listeners for Filter and Search
+    filterSelect.addEventListener('change', handleFilterSearch);
+    document.getElementById('mold-search').addEventListener('input', handleFilterSearch);
 }
 
-function renderProductionChart() {
-    const ctx = document.getElementById('productionChart').getContext('2d');
+function handleFilterSearch() {
+    const searchTerm = document.getElementById('mold-search').value.toLowerCase();
+    const selectedCustomer = document.getElementById('customer-filter').value;
 
-    // Gradient for the line chart
-    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)');
-    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+    const filteredData = state.moldMaster.filter(item => {
+        // Search Condition
+        const searchMatch =
+            (item['금형명'] && item['금형명'].toLowerCase().includes(searchTerm)) ||
+            (item['ID'] && String(item['ID']).toLowerCase().includes(searchTerm)) ||
+            (item['제품명'] && item['제품명'].toLowerCase().includes(searchTerm));
 
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: productionData.daily.map(d => d.date),
-            datasets: [{
-                label: '생산량',
-                data: productionData.daily.map(d => d.value),
-                borderColor: '#3b82f6',
-                backgroundColor: gradient,
-                borderWidth: 3,
-                pointBackgroundColor: '#3b82f6',
-                pointBorderColor: '#fff',
-                pointHoverBackgroundColor: '#fff',
-                pointHoverBorderColor: '#3b82f6',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false,
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                    titleColor: '#f8fafc',
-                    bodyColor: '#cbd5e1',
-                    borderColor: 'rgba(255, 255, 255, 0.1)',
-                    borderWidth: 1
-                }
-            },
-            scales: {
-                y: {
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.05)'
-                    },
-                    ticks: {
-                        color: '#94a3b8'
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        color: '#94a3b8'
-                    }
-                }
-            }
+        // Filter Condition
+        const customerMatch = selectedCustomer === 'all' || item['고객사코드'] === selectedCustomer;
+
+        return searchMatch && customerMatch;
+    });
+
+    renderInventoryTable(filteredData);
+}
+
+function renderInventoryTable(data) {
+    const tbody = document.getElementById('mold-table-body');
+    tbody.innerHTML = '';
+
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 20px;">검색 결과가 없습니다.</td></tr>';
+        return;
+    }
+
+    data.forEach(item => {
+        const tr = document.createElement('tr');
+
+        // Format Date
+        let dateStr = '';
+        if (item['등록일']) {
+            const d = new Date(item['등록일']);
+            dateStr = d.toLocaleDateString();
         }
+
+        // Find Customer Name
+        const customerCode = item['고객사코드'];
+        const customer = state.customers.find(c => c['거래처기호'] === customerCode);
+        const customerName = customer ? customer['거래처명'] : customerCode;
+
+        tr.innerHTML = `
+            <td>${item['ID'] || ''}</td>
+            <td>${customerName || ''}</td>
+            <td>${item['제품명'] || ''}</td>
+            <td style="font-weight: 500; color: var(--text-primary);">${item['금형명'] || ''}</td>
+            <td>${item['버전'] || ''}</td>
+            <td>${item['설비'] || ''}</td>
+            <td>${dateStr}</td>
+            <td>
+                <button class="icon-btn"><i class="ri-edit-line"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
     });
 }
 
-function renderStatusChart() {
-    const ctx = document.getElementById('moldStatusChart').getContext('2d');
+// 7. Modal & Form Logic
+function initModal() {
+    const modal = document.getElementById('add-mold-modal');
+    const openBtn = document.getElementById('btn-open-add-mold');
+    const closeBtns = document.querySelectorAll('.close-modal');
+    const form = document.getElementById('add-mold-form');
 
-    // Calculate counts
-    const normalCount = moldData.filter(m => m.status === 'normal').length;
-    const repairCount = moldData.filter(m => m.status === 'repair').length;
-    const disposalCount = moldData.filter(m => m.status === 'disposal').length;
+    // Open Modal
+    if (openBtn) {
+        openBtn.addEventListener('click', () => {
+            populateModalOptions();
+            modal.classList.add('active');
+        });
+    }
 
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['정상', '수리 필요', '폐기'],
-            datasets: [{
-                data: [normalCount, repairCount, disposalCount],
-                backgroundColor: [
-                    '#10b981', // Green
-                    '#f59e0b', // Orange
-                    '#ef4444'  // Red
-                ],
-                borderWidth: 0,
-                hoverOffset: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: '#94a3b8',
-                        usePointStyle: true,
-                        padding: 20
-                    }
-                }
-            },
-            cutout: '70%'
+    // Close Modal
+    closeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            modal.classList.remove('active');
+        });
+    });
+
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('active');
         }
+    });
+
+    // Auto-generate ID listeners
+    const productInput = form.querySelector('input[name="productName"]');
+    const versionInput = form.querySelector('input[name="version"]');
+    productInput.id = 'modal-product-input';
+    versionInput.id = 'modal-version-input';
+
+    [document.getElementById('modal-customer-select'), productInput, versionInput].forEach(input => {
+        input.addEventListener('input', generateMoldId);
+        input.addEventListener('change', generateMoldId);
+    });
+
+    // Handle Form Submit
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const formData = new FormData(form);
+        // Ensure ID is generated before submit if it wasn't already
+        if (!document.getElementById('modal-id-input').value) {
+            generateMoldId();
+        }
+
+        const data = {
+            id: document.getElementById('modal-id-input').value,
+            customerCode: formData.get('customerCode'),
+            productName: formData.get('productName'),
+            moldName: formData.get('moldName'),
+            version: formData.get('version'),
+            machine: formData.get('machine')
+        };
+
+        await submitNewMold(data);
     });
 }
 
-// --- Inventory Logic ---
-function initInventory() {
-    const tableBody = document.getElementById('mold-table-body');
-    const searchInput = document.getElementById('mold-search');
-    const statusFilter = document.getElementById('status-filter');
+function generateMoldId() {
+    const customerCode = document.getElementById('modal-customer-select').value;
+    const productName = document.getElementById('modal-product-input').value.trim();
+    const version = document.getElementById('modal-version-input').value.trim();
+    const idInput = document.getElementById('modal-id-input');
 
-    function renderTable(data) {
-        tableBody.innerHTML = '';
-
-        if (data.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: var(--text-secondary);">검색 결과가 없습니다.</td></tr>';
-            return;
-        }
-
-        data.forEach(item => {
-            const row = document.createElement('tr');
-
-            let statusLabel = '';
-            let statusClass = '';
-
-            switch (item.status) {
-                case 'normal': statusLabel = '정상'; statusClass = 'normal'; break;
-                case 'repair': statusLabel = '수리 필요'; statusClass = 'repair'; break;
-                case 'disposal': statusLabel = '폐기 예정'; statusClass = 'disposal'; break;
-            }
-
-            row.innerHTML = `
-                <td>${item.id}</td>
-                <td style="font-weight: 500; color: var(--text-primary);">${item.name}</td>
-                <td>${item.spec}</td>
-                <td>${item.location}</td>
-                <td>${item.shots.toLocaleString()}</td>
-                <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-                <td>
-                    <button class="icon-btn" style="width: 32px; height: 32px; font-size: 1rem;"><i class="ri-edit-line"></i></button>
-                </td>
-            `;
-            tableBody.appendChild(row);
-        });
+    if (!customerCode || !productName || !version) {
+        idInput.value = '';
+        idInput.placeholder = '고객사, 제품명, 버전을 모두 입력하세요';
+        return;
     }
 
-    function filterData() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const statusValue = statusFilter.value;
+    // Calculate Sequence based on Global Total Count + 1
+    // User Requirement: "순번은 총등록된 전체금형데이터수+1"
+    // Format: CustomerCode-ProductName-Sequence-Version
 
-        const filtered = moldData.filter(item => {
-            const matchesSearch = item.name.toLowerCase().includes(searchTerm) ||
-                item.id.toLowerCase().includes(searchTerm);
-            const matchesStatus = statusValue === 'all' || item.status === statusValue;
+    const totalCount = state.moldMaster.length;
+    const nextSeq = totalCount + 1;
+    const seqStr = String(nextSeq).padStart(4, '0');
 
-            return matchesSearch && matchesStatus;
+    const newId = `${customerCode}-${productName}-${seqStr}-${version}`;
+    idInput.value = newId;
+}
+
+function populateModalOptions() {
+    const custSelect = document.getElementById('modal-customer-select');
+    const machSelect = document.getElementById('modal-machine-select');
+
+    // Populate Customers
+    custSelect.innerHTML = '<option value="">선택하세요</option>';
+    state.customers.forEach(c => {
+        const option = document.createElement('option');
+        option.value = c['거래처기호'];
+        option.textContent = c['거래처명'];
+        custSelect.appendChild(option);
+    });
+
+    // Populate Machines
+    machSelect.innerHTML = '<option value="">선택하세요</option>';
+    state.machines.forEach(m => {
+        const option = document.createElement('option');
+        option.value = m['설비명'];
+        option.textContent = m['설비명'];
+        machSelect.appendChild(option);
+    });
+}
+
+async function submitNewMold(data) {
+    setLoading(true);
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8',
+            },
+            body: JSON.stringify({
+                action: 'addMold',
+                data: data
+            })
         });
 
-        renderTable(filtered);
+        alert('등록 요청을 보냈습니다. (잠시 후 목록이 갱신됩니다)');
+        document.getElementById('add-mold-modal').classList.remove('active');
+        document.getElementById('add-mold-form').reset();
+
+        // Reload data to see the new item
+        setTimeout(loadData, 1000);
+
+    } catch (error) {
+        console.error('Error submitting form:', error);
+        alert('등록 중 오류가 발생했습니다.');
+    } finally {
+        setLoading(false);
     }
+}
 
-    // Initial Render
-    renderTable(moldData);
+// 8. Utilities
+async function loadData() {
+    setLoading(true);
+    try {
+        console.log("Fetching data from:", API_URL);
 
-    // Event Listeners
-    searchInput.addEventListener('input', filterData);
-    statusFilter.addEventListener('change', filterData);
+        // Fetch all required data in parallel
+        const [moldsRes, customersRes, productsRes, machinesRes, partnersRes] = await Promise.all([
+            fetch(`${API_URL}?action=getMoldMaster`),
+            fetch(`${API_URL}?action=getCustomerCodes`),
+            fetch(`${API_URL}?action=getProductNames`),
+            fetch(`${API_URL}?action=getMachines`),
+            fetch(`${API_URL}?action=getPartners`)
+        ]);
+
+        // Parse JSON
+        const molds = await moldsRes.json();
+        const customers = await customersRes.json();
+        const products = await productsRes.json();
+        const machines = await machinesRes.json();
+        const partners = await partnersRes.json();
+
+        // Check for API errors
+        if (molds.error) throw new Error(molds.error);
+
+        // Update State
+        state.moldMaster = molds;
+        state.customers = customers;
+        state.products = products;
+        state.machines = machines;
+        state.partners = partners;
+
+        console.log("Data loaded successfully:", state);
+
+        // Render UI
+        renderDashboard();
+        renderInventoryFilters();
+        renderInventoryTable(state.moldMaster);
+
+    } catch (error) {
+        console.error("Error loading data:", error);
+        alert("데이터를 불러오는 중 오류가 발생했습니다.\n" + error.message);
+    } finally {
+        setLoading(false);
+    }
+}
+
+function setLoading(isLoading) {
+    if (isLoading) {
+        document.body.style.cursor = 'wait';
+        document.body.style.opacity = '0.7';
+    } else {
+        document.body.style.cursor = 'default';
+        document.body.style.opacity = '1';
+    }
 }

@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Production & Mold Dashboard</title>
+    <title>PMS - 금형 관리 시스템</title>
+
     <!-- Remix Icon -->
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <!-- Google Fonts -->
@@ -13,13 +15,13 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
-                <i class="ri-dashboard-3-line"></i>
-                <span>PMS System</span>
+                <img src="logo.png" alt="태창포징 Logo">
             </div>
             <nav class="nav-menu">
                 <button class="nav-item active" data-tab="dashboard">
@@ -52,62 +54,43 @@
 
             <!-- Dashboard View -->
             <section id="dashboard-view" class="view-section active">
+                <!-- KPI Grid -->
                 <div class="kpi-grid">
-                    <div class="kpi-card">
-                        <div class="icon-wrapper blue"><i class="ri-hammer-line"></i></div>
-                        <div class="kpi-info">
-                            <span class="label">오늘 생산량</span>
-                            <h3 class="value" id="kpi-production">0</h3>
-                            <span class="trend positive"><i class="ri-arrow-up-line"></i> 12% vs 어제</span>
-                        </div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="icon-wrapper green"><i class="ri-checkbox-circle-line"></i></div>
-                        <div class="kpi-info">
-                            <span class="label">가동률</span>
-                            <h3 class="value" id="kpi-utilization">0%</h3>
-                            <span class="trend positive"><i class="ri-arrow-up-line"></i> 5% vs 목표</span>
-                        </div>
-                    </div>
                     <div class="kpi-card">
                         <div class="icon-wrapper purple"><i class="ri-archive-drawer-line"></i></div>
                         <div class="kpi-info">
                             <span class="label">총 금형 수</span>
-                            <h3 class="value" id="kpi-molds">0</h3>
-                            <span class="trend neutral">변동 없음</span>
+                            <h3 class="value" id="kpi-total-molds">-</h3>
+                            <span class="trend neutral">전체 등록 금형</span>
                         </div>
                     </div>
                     <div class="kpi-card">
-                        <div class="icon-wrapper orange"><i class="ri-alert-line"></i></div>
+                        <div class="icon-wrapper blue"><i class="ri-calendar-check-line"></i></div>
                         <div class="kpi-info">
-                            <span class="label">수리 필요</span>
-                            <h3 class="value" id="kpi-repair">0</h3>
-                            <span class="trend negative"><i class="ri-arrow-up-line"></i> 2건 증가</span>
+                            <span class="label">이번 달 등록</span>
+                            <h3 class="value" id="kpi-recent-reg">-</h3>
+                            <span class="trend positive">신규 금형</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="icon-wrapper green"><i class="ri-building-line"></i></div>
+                        <div class="kpi-info">
+                            <span class="label">등록된 거래처</span>
+                            <h3 class="value" id="kpi-customers">-</h3>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="icon-wrapper orange"><i class="ri-tools-line"></i></div>
+                        <div class="kpi-info">
+                            <span class="label">보유 설비</span>
+                            <h3 class="value" id="kpi-machines">-</h3>
                         </div>
                     </div>
                 </div>
 
-                <div class="charts-container">
-                    <div class="chart-card main-chart">
-                        <div class="card-header">
-                            <h3>주간 생산량 추이</h3>
-                            <select class="chart-filter">
-                                <option>이번 주</option>
-                                <option>지난 주</option>
-                            </select>
-                        </div>
-                        <div class="chart-wrapper">
-                            <canvas id="productionChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="chart-card side-chart">
-                        <div class="card-header">
-                            <h3>금형 상태 비율</h3>
-                        </div>
-                        <div class="chart-wrapper">
-                            <canvas id="moldStatusChart"></canvas>
-                        </div>
-                    </div>
+                <!-- Charts Area -->
+                <div class="charts-container" style="display: none;">
+                    <!-- Charts will be re-enabled when we have production data -->
                 </div>
             </section>
 
@@ -116,16 +99,13 @@
                 <div class="inventory-controls">
                     <div class="search-bar">
                         <i class="ri-search-line"></i>
-                        <input type="text" id="mold-search" placeholder="금형 이름 또는 ID 검색...">
+                        <input type="text" id="mold-search" placeholder="금형명, ID, 제품명 검색...">
                     </div>
                     <div class="filters">
-                        <select id="status-filter">
-                            <option value="all">모든 상태</option>
-                            <option value="normal">정상</option>
-                            <option value="repair">수리 필요</option>
-                            <option value="disposal">폐기 예정</option>
+                        <select id="customer-filter">
+                            <option value="all">모든 고객사</option>
                         </select>
-                        <button class="btn-primary"><i class="ri-add-line"></i> 금형 추가</button>
+                        <button id="btn-open-add-mold" class="btn-primary"><i class="ri-add-line"></i> 금형 추가</button>
                     </div>
                 </div>
 
@@ -134,16 +114,17 @@
                         <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>금형 이름</th>
-                                <th>규격</th>
-                                <th>현재 위치</th>
-                                <th>누적 타수</th>
-                                <th>상태</th>
+                                <th>고객사</th>
+                                <th>제품명</th>
+                                <th>금형명</th>
+                                <th>버전</th>
+                                <th>설비</th>
+                                <th>등록일</th>
                                 <th>관리</th>
                             </tr>
                         </thead>
                         <tbody id="mold-table-body">
-                            <!-- Rows will be populated by JS -->
+                            <!-- Data rows will be populated here -->
                         </tbody>
                     </table>
                 </div>
@@ -151,7 +132,53 @@
         </main>
     </div>
 
-    <script src="data.js"></script>
+    <!-- Add Mold Modal -->
+    <div id="add-mold-modal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>새 금형 등록</h3>
+                <button class="close-modal"><i class="ri-close-line"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-mold-form">
+                    <div class="form-group">
+                        <label>ID</label>
+                        <input type="text" name="id" id="modal-id-input" readonly placeholder="자동 생성됩니다 (고객사-제품-순번-버전)">
+                    </div>
+                    <div class="form-group">
+                        <label>고객사</label>
+                        <select name="customerCode" id="modal-customer-select" required>
+                            <option value="">로딩 중...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>제품명</label>
+                        <input type="text" name="productName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>금형명</label>
+                        <input type="text" name="moldName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>버전</label>
+                        <input type="text" name="version" placeholder="예: v1.0">
+                    </div>
+                    <div class="form-group">
+                        <label>설비</label>
+                        <select name="machine" id="modal-machine-select">
+                            <option value="">로딩 중...</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary close-modal">취소</button>
+                        <button type="submit" class="btn-primary">등록</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
+
 </html>
